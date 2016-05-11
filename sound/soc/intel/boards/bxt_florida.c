@@ -435,7 +435,7 @@ struct snd_soc_dai_link mrgfld_florida_msic_dailink[] = {
 	/* back ends */
 	{
 		.name = "SSP0-Codec",
-		.be_id = 1,
+		.id = 1,
 		.cpu_dai_name = "SSP0 Pin",
 		.codec_name = "wm5110-codec",
 		.codec_dai_name = "wm5110-aif1",
@@ -449,7 +449,7 @@ struct snd_soc_dai_link mrgfld_florida_msic_dailink[] = {
 
 	{
 		.name = "dmic01",
-		.be_id = 2,
+		.id = 2,
 		.cpu_dai_name = "DMIC01 Pin",
 		.codec_name = "dmic-codec",
 		.codec_dai_name = "dmic-hifi",
@@ -462,7 +462,7 @@ struct snd_soc_dai_link mrgfld_florida_msic_dailink[] = {
 
 	{
 		.name = "dmic23",
-		.be_id = 3,
+		.id = 3,
 		.cpu_dai_name = "DMIC23 Pin",
 		.codec_name = "dmic-codec",
 		.codec_dai_name = "dmic-hifi",
@@ -493,7 +493,7 @@ struct snd_soc_dai_link mrgfld_wm8998_msic_dailink[] = {
 	/* back ends */
 	{
 		.name = "SSP0-Codec",
-		.be_id = 1,
+		.id = 1,
 		.cpu_dai_name = "SSP0 Pin",
 		.platform_name = "0000:00:0e.0",
 		.codec_name = "wm8998-codec",
@@ -506,7 +506,7 @@ struct snd_soc_dai_link mrgfld_wm8998_msic_dailink[] = {
 
 	{
 		.name = "dmic01",
-		.be_id = 2,
+		.id = 2,
 		.cpu_dai_name = "DMIC01 Pin",
 		.codec_name = "dmic-codec",
 		.codec_dai_name = "dmic-hifi",
@@ -519,7 +519,7 @@ struct snd_soc_dai_link mrgfld_wm8998_msic_dailink[] = {
 
 	{
 		.name = "dmic23",
-		.be_id = 3,
+		.id = 3,
 		.cpu_dai_name = "DMIC23 Pin",
 		.codec_name = "dmic-codec",
 		.codec_dai_name = "dmic-hifi",
