@@ -34,7 +34,6 @@
 #include <linux/input.h>
 
 #include <linux/mfd/arizona/registers.h>
-#include "../../codecs/wm5110.h"
 #include "../../codecs/wm8998.h"
 
 
@@ -53,26 +52,14 @@
 #define CODEC_IN_BCLK				3
 
 #define SLOT_MASK(x) ((1 << x) - 1)
-bool is_codec8998;
-struct mrgfld_mc_private {
-	u8		pmic_id;
-	void __iomem    *osc_clk0_reg;
-	int bt_mode;
-};
 
 static inline struct snd_soc_codec *mrgfld_florida_get_codec(struct snd_soc_card *card)
 {
 	bool found = false;
 	struct snd_soc_codec *codec;
-	char *codec_name;
-
-	if (is_codec8998)
-		codec_name = "wm8998-codec";
-	else
-		codec_name = "wm5110-codec";
 
 	list_for_each_entry(codec, &card->codec_dev_list, card_list) {
-		if (!strstr(codec->component.name, codec_name)) {
+		if (!strstr(codec->component.name, "wm8998-codec")) {
 			pr_debug("codec was %s", codec->component.name);
 			continue;
 		} else {
@@ -102,16 +89,16 @@ static int mrgfld_florida_set_codec_clk(struct snd_soc_codec *florida_codec, int
 	pr_debug("mrgfld_florida_set_codec_clk: source %d\n", src);
 
 	/*reset FLL1*/
-	snd_soc_codec_set_pll(florida_codec, WM5110_FLL1_REFCLK,
+	snd_soc_codec_set_pll(florida_codec, WM8998_FLL1_REFCLK,
 				ARIZONA_FLL_SRC_NONE, 0, 0);
-	snd_soc_codec_set_pll(florida_codec, WM5110_FLL1,
+	snd_soc_codec_set_pll(florida_codec, WM8998_FLL1,
 				ARIZONA_FLL_SRC_NONE, 0, 0);
 
 	switch (src) {
 	case CODEC_IN_MCLK1:
 		/* Turn ON the PLL to generate required sysclk rate
 		 * from MCLK1 */
-		ret = snd_soc_codec_set_pll(florida_codec, WM5110_FLL1,
+		ret = snd_soc_codec_set_pll(florida_codec, WM8998_FLL1,
 				ARIZONA_CLK_SRC_MCLK1, CODEC_IN_MCLK1_RATE,
 				CODEC_SYSCLK_RATE);
 		if (ret != 0) {
@@ -122,7 +109,7 @@ static int mrgfld_florida_set_codec_clk(struct snd_soc_codec *florida_codec, int
 	case CODEC_IN_BCLK:
 		/* Turn ON the PLL to generate required sysclk rate
 		 * from BCLK */
-		ret = snd_soc_codec_set_pll(florida_codec, WM5110_FLL1,
+		ret = snd_soc_codec_set_pll(florida_codec, WM8998_FLL1,
 				ARIZONA_CLK_SRC_AIF1BCLK, CODEC_IN_BCLK_RATE,
 				CODEC_SYSCLK_RATE);
 		if (ret != 0) {
@@ -178,9 +165,7 @@ static int mrgfld_clock_control(struct snd_soc_dapm_widget *w,
 static const struct snd_soc_dapm_widget mrgfld_widgets[] = {
 	SND_SOC_DAPM_HP("Headphones", NULL),
 	SND_SOC_DAPM_SPK("Ext Spk", NULL),
-	SND_SOC_DAPM_SPK("EP", NULL),
 	SND_SOC_DAPM_MIC("AMIC", NULL),
-	SND_SOC_DAPM_MIC("DMIC", NULL),
 	SND_SOC_DAPM_MIC("SoC DMIC", NULL),
 	SND_SOC_DAPM_MIC("HDMI", NULL),
 	SND_SOC_DAPM_SUPPLY("Platform Clock", SND_SOC_NOPM, 0, 0,
@@ -198,68 +183,6 @@ static int bxt_dmic_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
-static unsigned int rates[] = {
-	48000,
-};
-static unsigned int channels_dmic[] = {
-	2, 4,
-};
-static struct snd_pcm_hw_constraint_list constraints_rates = {
-	.count = ARRAY_SIZE(rates),
-	.list  = rates,
-	.mask = 0,
-};
-
-static struct snd_pcm_hw_constraint_list constraints_dmic_channels = {
-	.count = ARRAY_SIZE(channels_dmic),
-	.list = channels_dmic,
-	.mask = 0,
-};
-
-
-static const struct snd_soc_dapm_route mrgfld_wm5110_map[] = {
-	/*Headphones*/
-	{ "Headphones", NULL, "HPOUT1L" },
-	{ "Headphones", NULL, "HPOUT1R" },
-
-	/*Speakers*/
-	{"Ext Spk", NULL, "SPKOUTLP"},
-	{"Ext Spk", NULL, "SPKOUTLN"},
-	{"Ext Spk", NULL, "SPKOUTRP"},
-	{"Ext Spk", NULL, "SPKOUTRN"},
-
-	{ "AMIC", NULL, "MICBIAS2" },
-	{ "AMIC", NULL, "MICBIAS1" },
-	{ "IN1L", NULL, "AMIC" },
-	{ "IN1R", NULL, "AMIC" },
-
-	/* SWM map link the SWM outs to codec AIF */
-	{ "AIF1 Playback", NULL, "ssp0 Tx"},
-	{ "ssp0 Tx", NULL, "codec1_out"},
-	{ "ssp0 Tx", NULL, "codec0_out"},
-
-	{ "ssp0 Rx", NULL, "AIF1 Capture" },
-	{ "codec0_in", NULL, "ssp0 Rx" },
-	{ "codec1_in", NULL, "ssp0 Rx" },
-
-	{ "DMic", NULL, "SoC DMIC"},
-
-	{ "DMIC01 Rx", NULL, "Capture" },
-	{ "DMIC23 Rx", NULL, "Capture" },
-	{ "dmic01_hifi", NULL, "DMIC01 Rx" },
-	{ "dmic23_hifi", NULL, "DMIC23 Rx" },
-
-
-	{"Headphones", NULL, "Platform Clock"},
-	{"AMIC", NULL, "Platform Clock"},
-	{"DMIC", NULL, "Platform Clock"},
-	{"Ext Spk", NULL, "Platform Clock"},
-	{"EP", NULL, "Platform Clock"},
-	{"Tone Generator 1", NULL, "Platform Clock" },
-	{"Tone Generator 2", NULL, "Platform Clock" },
-};
-
-
 static const struct snd_soc_dapm_route mrgfld_wm8998_map[] = {
 	/*Headphones*/
 	{ "Headphones", NULL, "HPOUTL" },
@@ -270,14 +193,6 @@ static const struct snd_soc_dapm_route mrgfld_wm8998_map[] = {
 	{"Ext Spk", NULL, "SPKOUTLN"},
 	{"Ext Spk", NULL, "SPKOUTRP"},
 	{"Ext Spk", NULL, "SPKOUTRN"},
-
-	/*Earpiece*/
-	{ "EP", NULL, "EPOUTN" },
-	{ "EP", NULL, "EPOUTP" },
-
-	{"IN3L", NULL, "DMIC"},
-	{"IN3R", NULL, "DMIC"},
-	{"DMIC", NULL, "MICVDD"},
 
 	{ "AMIC", NULL, "MICBIAS2" },
 	{ "AMIC", NULL, "MICBIAS1" },
@@ -291,21 +206,15 @@ static const struct snd_soc_dapm_route mrgfld_wm8998_map[] = {
 
 	{ "ssp0 Rx", NULL, "AIF1 Capture" },
 	{ "codec0_in", NULL, "ssp0 Rx" },
-	{ "codec1_in", NULL, "ssp0 Rx" },
 
 	{ "DMIC01 Rx", NULL, "Capture" },
-	{ "DMIC23 Rx", NULL, "Capture" },
 	{ "dmic01_hifi", NULL, "DMIC01 Rx" },
-	{ "dmic23_hifi", NULL, "DMIC23 Rx" },
-
 
 	/* TODO: map for rest of the ports */
 
 	{"Headphones", NULL, "Platform Clock"},
 	{"AMIC", NULL, "Platform Clock"},
-	{"DMIC", NULL, "Platform Clock"},
 	{"Ext Spk", NULL, "Platform Clock"},
-	{"EP", NULL, "Platform Clock"},
 	{"Tone Generator 1", NULL, "Platform Clock" },
 	{"Tone Generator 2", NULL, "Platform Clock" },
 };
@@ -313,9 +222,7 @@ static const struct snd_soc_dapm_route mrgfld_wm8998_map[] = {
 static const struct snd_kcontrol_new mrgfld_controls[] = {
 	SOC_DAPM_PIN_SWITCH("Headphones"),
 	SOC_DAPM_PIN_SWITCH("Ext Spk"),
-	SOC_DAPM_PIN_SWITCH("EP"),
 	SOC_DAPM_PIN_SWITCH("AMIC"),
-	SOC_DAPM_PIN_SWITCH("DMIC"),
 };
 
 static int mrgfld_florida_init(struct snd_soc_pcm_runtime *runtime)
@@ -344,8 +251,6 @@ static int mrgfld_florida_init(struct snd_soc_pcm_runtime *runtime)
 
 static unsigned int rates_48000[] = {
 	48000,
-	16000,
-	8000,
 };
 
 static struct snd_pcm_hw_constraint_list constraints_48000 = {
@@ -372,15 +277,11 @@ static int mrgfld_florida_codec_fixup(struct snd_soc_pcm_runtime *rtd,
 	struct snd_interval *channels = hw_param_interval(params,
 						SNDRV_PCM_HW_PARAM_CHANNELS);
 
-	pr_debug("Invoked %s for dailink %s\n", __func__, rtd->dai_link->name);
 	rate->min = rate->max = 48000;
 	channels->min = channels->max = 2;
 	snd_mask_none(hw_param_mask(params, SNDRV_PCM_HW_PARAM_FORMAT));
 	snd_mask_set(hw_param_mask(params, SNDRV_PCM_HW_PARAM_FORMAT),
 						SNDRV_PCM_FORMAT_S24_LE);
-
-	pr_debug("param width set to:0x%x\n",
-			snd_pcm_format_width(params_format(params)));
 
 	return 0;
 }
@@ -401,7 +302,7 @@ static int mrgfld_ssp_florida_hw_params(struct snd_pcm_substream *substream,
 	}
 
 	/* bit clock inverse not required */
-	fmt =   SND_SOC_DAIFMT_DSP_A | SND_SOC_DAIFMT_NB_NF
+	fmt =   SND_SOC_DAIFMT_DSP_A | SND_SOC_DAIFMT_IB_NF
 		| SND_SOC_DAIFMT_CBS_CFS;
 	ret = snd_soc_dai_set_fmt(florida_dai, fmt);
 	if (ret < 0) {
@@ -414,64 +315,6 @@ static int mrgfld_ssp_florida_hw_params(struct snd_pcm_substream *substream,
 
 static struct snd_soc_ops mrgfld_ssp_florida_ops = {
 	.hw_params =  mrgfld_ssp_florida_hw_params,
-};
-
-struct snd_soc_dai_link mrgfld_florida_msic_dailink[] = {
-	{
-		.name = "Bxtn Audio Port",
-		.stream_name = "Audio",
-		.cpu_dai_name = "System Pin",
-		.codec_name = "snd-soc-dummy",
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.platform_name = "0000:00:0e.0",
-		.init = mrgfld_florida_init,
-		.nonatomic = 1,
-		.dynamic = 1,
-		.dpcm_playback = 1,
-		.dpcm_capture = 1,
-		.ops = &mrgfld_florida_ops,
-	},
-
-	/* back ends */
-	{
-		.name = "SSP0-Codec",
-		.id = 1,
-		.cpu_dai_name = "SSP0 Pin",
-		.codec_name = "wm5110-codec",
-		.codec_dai_name = "wm5110-aif1",
-		.platform_name = "0000:00:0e.0",
-		.be_hw_params_fixup = mrgfld_florida_codec_fixup,
-		.ops = &mrgfld_ssp_florida_ops,
-		.no_pcm = 1,
-		.dpcm_playback = 1,
-		.dpcm_capture = 1,
-	},
-
-	{
-		.name = "dmic01",
-		.id = 2,
-		.cpu_dai_name = "DMIC01 Pin",
-		.codec_name = "dmic-codec",
-		.codec_dai_name = "dmic-hifi",
-		.platform_name = "0000:00:0e.0",
-		.ignore_suspend = 1,
-		.dpcm_capture = 1,
-		.no_pcm = 1,
-		.be_hw_params_fixup = bxt_dmic_fixup,
-	},
-
-	{
-		.name = "dmic23",
-		.id = 3,
-		.cpu_dai_name = "DMIC23 Pin",
-		.codec_name = "dmic-codec",
-		.codec_dai_name = "dmic-hifi",
-		.platform_name = "0000:00:0e.0",
-		.be_hw_params_fixup = bxt_dmic_fixup,
-		.dpcm_capture = 1,
-		.no_pcm = 1,
-	},
-
 };
 
 struct snd_soc_dai_link mrgfld_wm8998_msic_dailink[] = {
@@ -499,6 +342,7 @@ struct snd_soc_dai_link mrgfld_wm8998_msic_dailink[] = {
 		.codec_name = "wm8998-codec",
 		.codec_dai_name = "wm8998-aif1",
 		.be_hw_params_fixup = mrgfld_florida_codec_fixup,
+		.ops = &mrgfld_ssp_florida_ops,
 		.no_pcm = 1,
 		.dpcm_playback = 1,
 		.dpcm_capture = 1,
@@ -516,37 +360,21 @@ struct snd_soc_dai_link mrgfld_wm8998_msic_dailink[] = {
 		.no_pcm = 1,
 		.be_hw_params_fixup = bxt_dmic_fixup,
 	},
-
-	{
-		.name = "dmic23",
-		.id = 3,
-		.cpu_dai_name = "DMIC23 Pin",
-		.codec_name = "dmic-codec",
-		.codec_dai_name = "dmic-hifi",
-		.platform_name = "0000:00:0e.0",
-		.dpcm_capture = 1,
-		.no_pcm = 1,
-		.be_hw_params_fixup = bxt_dmic_fixup,
-        },
-
 };
 
 #ifdef CONFIG_PM_SLEEP
 static int snd_mrgfld_florida_prepare(struct device *dev)
 {
-	pr_debug("In %s\n", __func__);
 	return snd_soc_suspend(dev);
 }
 
 static void snd_mrgfld_florida_complete(struct device *dev)
 {
-	pr_debug("In %s\n", __func__);
 	snd_soc_resume(dev);
 }
 
 static int snd_mrgfld_florida_poweroff(struct device *dev)
 {
-	pr_debug("In %s\n", __func__);
 	return snd_soc_poweroff(dev);
 }
 #else
@@ -569,7 +397,6 @@ static struct snd_soc_card snd_soc_card_wm8998_mrgfld = {
 
 static int snd_mrgfld_florida_mc_probe(struct platform_device *pdev)
 {
-	is_codec8998 = true;
 	snd_soc_card_wm8998_mrgfld.dev = &pdev->dev;
 
 	return devm_snd_soc_register_card(&pdev->dev, &snd_soc_card_wm8998_mrgfld);
@@ -590,6 +417,7 @@ static struct platform_driver snd_mrgfld_florida_mc_driver = {
 module_platform_driver(snd_mrgfld_florida_mc_driver);
 
 MODULE_DESCRIPTION("ASoC Morganfield Machine driver");
-MODULE_AUTHOR("Samreen Nilofer <samreen.nilofer@intel.com>");
+MODULE_AUTHOR("Guruprasad Pawse <guruprasadx.pawse@intel.com>");
+MODULE_AUTHOR("Ramesh Babu <Ramesh.Babu@intel.com>");
 MODULE_LICENSE("GPL v2");
 MODULE_ALIAS("platform:mrgfld_florida");
