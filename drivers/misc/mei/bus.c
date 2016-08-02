@@ -325,7 +325,7 @@ int mei_cldev_register_event_cb(struct mei_cl_device *cldev,
 
 	if (cldev->events_mask & BIT(MEI_CL_EVENT_RX)) {
 		mutex_lock(&bus->device_lock);
-		ret = mei_cl_read_start(cldev->cl, 0, NULL);
+		ret = mei_cl_read_start(cldev->cl, mei_cl_mtu(cldev->cl), NULL);
 		mutex_unlock(&bus->device_lock);
 		if (ret && ret != -EBUSY)
 			return ret;
@@ -984,12 +984,10 @@ void mei_cl_bus_rescan_work(struct work_struct *work)
 		container_of(work, struct mei_device, bus_rescan_work);
 	struct mei_me_client *me_cl;
 
-	mutex_lock(&bus->device_lock);
 	me_cl = mei_me_cl_by_uuid(bus, &mei_amthif_guid);
 	if (me_cl)
 		mei_amthif_host_init(bus, me_cl);
 	mei_me_cl_put(me_cl);
-	mutex_unlock(&bus->device_lock);
 
 	mei_cl_bus_rescan(bus);
 }
